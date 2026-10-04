@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ask-your-data
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python data/build_db.py
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: LLM_PROVIDER
+        value: mistral
+      - key: MISTRAL_API_KEY
+        sync: false
