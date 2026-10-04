@@ -13,7 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 PORT = 8502
-W, H = 1200, 750
+W, H = 900, 563
+QUALITY = 40
+# frames to keep in the final SVG (drop the less interesting ones if set)
+KEEP = {"monthly-results", "sql-visible", "top-products"}
 FRAMES = []
 
 
@@ -21,6 +24,14 @@ def shot(page, name):
     png = page.screenshot()
     FRAMES.append((name, png))
     print("frame:", name, len(png) // 1024, "KB")
+
+
+def shot_chart(page, name):
+    """Scroll the Plotly chart into view before capturing."""
+    page.locator(".js-plotly-plot").first.evaluate(
+        "el => el.scrollIntoView({block: 'center'})")
+    time.sleep(0.8)
+    shot(page, name)
 
 
 def pick_question(page, option_text):
@@ -68,9 +79,10 @@ def main():
             # plotly.js is heavy: wait for the chart to actually render
             page.locator(".js-plotly-plot").first.wait_for(timeout=45000)
             time.sleep(2)
-            shot(page, "monthly-results")
+            shot_chart(page, "monthly-results")
 
             # frame 3: open the SQL expander for auditability
+            page.get_by_text("Voir le SQL généré").scroll_into_view_if_needed()
             page.get_by_text("Voir le SQL généré").click()
             time.sleep(1)
             shot(page, "sql-visible")
@@ -81,7 +93,7 @@ def main():
                 page.get_by_role("button", name="Analyser").click()
                 page.locator(".js-plotly-plot").first.wait_for(timeout=45000)
                 time.sleep(2)
-                shot(page, "top-products")
+                shot_chart(page, "top-products")
             except Exception as e:
                 print("frame 4 skipped:", e)
             browser.close()
@@ -90,15 +102,16 @@ def main():
 
     # assemble animated SVG (JPEG frames, hard cuts via SMIL discrete)
     from PIL import Image
-    n = len(FRAMES)
+    kept = [(name, png) for name, png in FRAMES if name in KEEP]
+    n = len(kept)
     dur = n * 3
     parts = [f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
              'xmlns="http://www.w3.org/2000/svg" '
              'xmlns:xlink="http://www.w3.org/1999/xlink">']
-    for i, (name, png) in enumerate(FRAMES):
+    for i, (name, png) in enumerate(kept):
         img = Image.open(io.BytesIO(png)).convert("RGB")
         buf = io.BytesIO()
-        img.save(buf, "JPEG", quality=72)
+        img.save(buf, "JPEG", quality=QUALITY)
         b64 = base64.b64encode(buf.getvalue()).decode()
         start, end = i / n, (i + 1) / n
         parts.append(

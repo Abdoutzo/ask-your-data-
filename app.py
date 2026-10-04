@@ -83,7 +83,8 @@ if run:
         with col1:
             fig = charts.render(ans.result, ans.chart)
             if fig is not None:
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True,
+                                config={"displayModeBar": False})
             else:
                 st.dataframe(charts.to_display_rows(ans.result))
         with col2:

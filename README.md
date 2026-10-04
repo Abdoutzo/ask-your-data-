@@ -2,6 +2,8 @@
 
 A natural-language data analyst: ask questions in plain French, get SQL, charts, and explanations back.
 
+![demo walkthrough](assets/demo.svg)
+
 ## Why this exists
 
 "Quel est le chiffre d'affaires par mois en 2024 ?" shouldn't require knowing SQL. This agent reads the database schema, generates the query, runs it through paranoid guardrails (SELECT-only, allowlisted tables, injection rejection), executes it, picks the right chart, and explains the result in plain language. The generated SQL is always shown — an analyst who can't show their work isn't an analyst.
@@ -53,8 +55,13 @@ See [QUICKSTART.md](QUICKSTART.md). The short version:
 pip install -r requirements.txt
 python data/build_db.py
 python evals/run_eval.py     # offline evals, no API key needed
-streamlit run app.py         # demo UI (needs an LLM key for full mode)
+streamlit run app.py         # demo UI: full NL mode with a key,
+                             # verified-question demo mode without one
 ```
+
+The demo above was recorded with `scripts/record_demo.py` (Playwright →
+animated SVG), running the app with no API key: the curated questions use
+verified SQL, everything else (guardrails, execution, charting) runs for real.
 
 ## Repo map
 
