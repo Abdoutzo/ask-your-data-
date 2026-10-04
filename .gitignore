@@ -1,13 +1,8 @@
 __pycache__/
 *.py[cod]
-*.egg-info/
 .venv/
 venv/
 .env
-index/
-*.faiss
-*.npy
+data/shop.db
 .streamlit/
-dist/
-build/
 .pytest_cache/
