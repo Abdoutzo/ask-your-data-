@@ -12,23 +12,32 @@ import streamlit as st
 import config
 from src import charts
 from src.agent import ask
+from src.demo import DEMO_QUESTIONS, get_demo, insight_for
 from src.sqlgen import LLMClient
 
 st.set_page_config(page_title="Ask your data — démo", layout="wide")
 st.title("Posez vos questions à vos données")
 
+llm = LLMClient()
+demo_mode = not llm.enabled
+
 with st.sidebar:
     st.header("Réglages")
-    st.caption("Base : boutique e-commerce fictive (2023-2024). "
-               "Sans clé API, l'agent ne peut pas générer de SQL : "
-               "ajoutez-en une dans .env pour la démo complète.")
+    if demo_mode:
+        st.caption("Base : boutique e-commerce fictive (2023-2024). "
+                   "Mode démo sans clé API : les questions proposées sont "
+                   "répondues avec des requêtes vérifiées ; ajoutez "
+                   "MISTRAL_API_KEY ou OPENAI_API_KEY dans .env pour poser "
+                   "vos propres questions en langage naturel.")
+    else:
+        st.caption("Base : boutique e-commerce fictive (2023-2024).")
     if st.button("Exemples de questions"):
         st.session_state["examples"] = True
 
-llm = LLMClient()
-if not llm.enabled:
-    st.info("Pas de clé API : la génération SQL est désactivée. "
-            "Ajoutez MISTRAL_API_KEY ou OPENAI_API_KEY dans .env.")
+if demo_mode:
+    st.info("Pas de clé API : mode démo — choisissez une question "
+            "vérifiée ci-dessous pour voir le pipeline complet "
+            "(SQL → garde-fous → exécution → graphique).")
 
 if st.session_state.get("examples"):
     st.markdown(
@@ -37,16 +46,32 @@ if st.session_state.get("examples"):
         "- Quelle catégorie génère le plus de marge ?\n"
         "- Quel mois de 2024 a enregistré le plus de commandes livrées ?")
 
-question = st.text_input("Votre question",
-                         "Quel est le chiffre d'affaires par mois en 2024 ?")
-if st.button("Analyser") and question:
+if demo_mode:
+    labels = [d["question"] for d in DEMO_QUESTIONS]
+    choice = st.selectbox("Question de démonstration", labels)
+    demo = DEMO_QUESTIONS[labels.index(choice)]
+    question = demo["question"]
+    run = st.button("Analyser")
+else:
+    question = st.text_input("Votre question",
+                             "Quel est le chiffre d'affaires par mois en 2024 ?")
+    run = st.button("Analyser") and question
+    demo = None
+
+if run:
     # make sure the DB exists (first run / fresh deploy)
     if not os.path.exists(config.DB_PATH):
         with st.spinner("Création de la base de démonstration…"):
             from data.build_db import build
             build(config.DB_PATH)
     with st.spinner("Analyse en cours…"):
-        ans = ask(question, config.DB_PATH, llm)
+        if demo is not None:
+            d = get_demo(demo["id"])
+            ans = ask(d["question"], config.DB_PATH, llm,
+                      sql_override=d["sql"],
+                      insight_override=lambda r, d=d: insight_for(d, r))
+        else:
+            ans = ask(question, config.DB_PATH, llm)
 
     if ans.refused:
         st.warning(f"Je ne peux pas répondre : {ans.refusal_reason}")

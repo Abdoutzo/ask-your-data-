@@ -42,7 +42,10 @@ pytest tests/ -q
 streamlit run app.py
 ```
 
-Without an API key, SQL generation is disabled. Add one to `.env`:
+Without an API key, the app runs in demo mode: pick one of the curated
+questions and the full pipeline runs with verified SQL (guardrails,
+execution and charting are real; only generation is stubbed). For free-form
+questions in French, add a key to `.env`:
 
 ```env
 LLM_PROVIDER=mistral

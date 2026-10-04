@@ -23,7 +23,7 @@ class Answer:
     refused: bool = False
     refusal_reason: str = ""
     result: Result | None = None
-    chart: ChartSpec = field(default_factory=ChartSpec)
+    chart: ChartSpec = field(default_factory=lambda: ChartSpec(kind="table"))
     insight: str = ""
     latency_s: float = 0.0
     cost_usd: float = 0.0
@@ -31,9 +31,12 @@ class Answer:
 
 def ask(question: str, db_path: str = config.DB_PATH,
         llm: LLMClient | None = None,
-        sql_override: str | None = None) -> Answer:
-    """Answer a question. sql_override bypasses generation (used by evals
-    and tests to exercise the pipeline deterministically)."""
+        sql_override: str | None = None,
+        insight_override=None) -> Answer:
+    """Answer a question. sql_override bypasses generation (used by evals,
+    tests and demo mode to exercise the pipeline deterministically).
+    insight_override is either a fixed string or a callable(result) used
+    instead of the LLM insight (demo mode without an API key)."""
     t0 = time.time()
     llm = llm or LLMClient()
     ans = Answer(question=question)
@@ -68,6 +71,11 @@ def ask(question: str, db_path: str = config.DB_PATH,
         return ans
 
     ans.chart = charts.suggest(ans.result)
-    ans.insight = insights.generate_insight(question, ans.sql, ans.result, llm)
+    if insight_override is not None:
+        ans.insight = (insight_override(ans.result)
+                       if callable(insight_override) else insight_override)
+    else:
+        ans.insight = insights.generate_insight(question, ans.sql,
+                                                ans.result, llm)
     ans.latency_s = time.time() - t0 + gen.latency_s
     return ans
